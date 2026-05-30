@@ -1,0 +1,9 @@
+# Snap build artifacts
+*.snap
+parts/
+stage/
+prime/
+
+# Snapcraft state
+.snapcraft/
+snapcraft.log
