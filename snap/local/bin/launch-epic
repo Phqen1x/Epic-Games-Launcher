@@ -1,0 +1,141 @@
+#!/bin/bash
+set -eu
+
+WINE="${WINE:-${SNAP}/opt/wine-stable/bin/wine}"
+WINESERVER="${WINESERVER:-${SNAP}/opt/wine-stable/bin/wineserver}"
+WINEPREFIX="${WINEPREFIX:-${SNAP_USER_COMMON}/wine}"
+WINEARCH="${WINEARCH:-win64}"
+
+MSI_INSTALLER="${SNAP}/usr/share/epic-games-launcher/EpicGamesLauncherInstaller.msi"
+EGL_EXE="${WINEPREFIX}/drive_c/Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
+
+# Tunable limits: override via environment variables before launching the snap.
+# EPIC_MEMORY_LIMIT_MB  – RSS of the main wine process that triggers a kill (default 6 GB)
+# EPIC_MIN_FREE_MB      – system MemAvailable floor that triggers a kill   (default 512 MB)
+MEMORY_LIMIT_MB="${EPIC_MEMORY_LIMIT_MB:-6144}"
+MIN_FREE_MB="${EPIC_MIN_FREE_MB:-512}"
+
+log() { echo "[epic-snap] $*" >&2; }
+
+heartbeat() {
+    local pid=$1 label=$2
+    local elapsed=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 5
+        elapsed=$(( elapsed + 5 ))
+        log "${label} (${elapsed}s elapsed...)"
+    done
+}
+
+wine_killall() {
+    log "Killing lingering Wine processes..."
+    "${WINESERVER}" -k 2>/dev/null || true
+    sleep 1
+}
+
+# Runs in the background while Wine is alive.  Kills Wine (and the wineserver)
+# if the process RSS exceeds MEMORY_LIMIT_MB or system free memory drops below
+# MIN_FREE_MB, preventing an OOM crash of the whole desktop.
+memory_watchdog() {
+    local pid=$1
+    while kill -0 "${pid}" 2>/dev/null; do
+        sleep 10
+
+        # Per-process RSS check
+        if [ -r "/proc/${pid}/status" ]; then
+            rss_kb=$(awk '/^VmRSS:/{print $2}' "/proc/${pid}/status" 2>/dev/null || echo 0)
+            rss_mb=$(( ${rss_kb:-0} / 1024 ))
+            if [ "${rss_mb}" -ge "${MEMORY_LIMIT_MB}" ]; then
+                log "ERROR: Wine is using ${rss_mb} MB (limit: ${MEMORY_LIMIT_MB} MB). Terminating to prevent system crash."
+                kill "${pid}" 2>/dev/null || true
+                wine_killall
+                return 1
+            fi
+        fi
+
+        # System-wide free memory check (catches aggregate Wine sub-process leaks)
+        avail_kb=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo 2>/dev/null || echo 9999999)
+        avail_mb=$(( ${avail_kb:-9999999} / 1024 ))
+        if [ "${avail_mb}" -lt "${MIN_FREE_MB}" ]; then
+            log "ERROR: System memory critically low – ${avail_mb} MB free (minimum: ${MIN_FREE_MB} MB). Terminating to prevent system crash."
+            kill "${pid}" 2>/dev/null || true
+            wine_killall
+            return 1
+        fi
+    done
+}
+
+# ── 1. Initialize Wine prefix (first run only) ────────────────────────────
+# If the prefix exists but the launcher was never successfully installed the
+# prefix is stale (e.g. from a failed/cancelled previous run, or a Wine version
+# change between snap rebuilds).  Wipe it so wineboot --init runs cleanly;
+# otherwise msiexec triggers an implicit wineboot --update that can hang for
+# minutes before timing out.
+if [ -d "${WINEPREFIX}/drive_c" ] && [ ! -f "${EGL_EXE}" ]; then
+    log "Stale Wine prefix detected (launcher not installed). Removing and reinitializing..."
+    wine_killall
+    rm -rf "${WINEPREFIX}"
+fi
+
+if [ ! -d "${WINEPREFIX}/drive_c" ]; then
+    log "Initializing Wine prefix – this only happens once, please wait..."
+    mkdir -p "${WINEPREFIX}"
+    WINEARCH="${WINEARCH}" "${WINE}" wineboot --init &
+    WINEBOOT_PID=$!
+    heartbeat "${WINEBOOT_PID}" "Initializing prefix"
+    if ! wait "${WINEBOOT_PID}"; then
+        log "ERROR: Wine prefix initialization failed (exit $?)."
+        wine_killall
+        exit 1
+    fi
+    "${WINESERVER}" --wait
+    log "Wine prefix ready."
+fi
+
+# ── 2. Install Epic Games Launcher via the MSI (first run only) ───────────
+if [ ! -f "${EGL_EXE}" ]; then
+    log "Installing Epic Games Launcher – a progress window will appear on screen."
+    log "Do not close it. The installer downloads additional components (~500 MB)."
+
+    "${WINE}" msiexec /i "${MSI_INSTALLER}" /passive /norestart &
+    MSI_PID=$!
+    heartbeat "${MSI_PID}" "Installer running"
+    MSI_EXIT=0
+    wait "${MSI_PID}" || MSI_EXIT=$?
+    if [ "${MSI_EXIT}" -ne 0 ]; then
+        log "ERROR: MSI installer failed (exit ${MSI_EXIT})."
+        wine_killall
+        exit 1
+    fi
+    "${WINESERVER}" --wait
+
+    if [ ! -f "${EGL_EXE}" ]; then
+        log "Searching for EpicGamesLauncher.exe in Wine prefix..."
+        FOUND=$(find "${WINEPREFIX}/drive_c" -iname "EpicGamesLauncher.exe" 2>/dev/null | head -1)
+        if [ -n "${FOUND}" ]; then
+            EGL_EXE="${FOUND}"
+            log "Found at: ${EGL_EXE}"
+        else
+            log "ERROR: EpicGamesLauncher.exe not found after installation."
+            log "       Try running the snap again; the installer may still be in progress."
+            wine_killall
+            exit 1
+        fi
+    fi
+
+    log "Installation complete."
+fi
+
+# ── 3. Launch ─────────────────────────────────────────────────────────────
+log "Starting Epic Games Launcher..."
+"${WINE}" "${EGL_EXE}" "$@" &
+WINE_PID=$!
+
+memory_watchdog "${WINE_PID}" &
+WATCHDOG_PID=$!
+
+wait "${WINE_PID}"
+EXIT_CODE=$?
+kill "${WATCHDOG_PID}" 2>/dev/null || true
+wine_killall
+exit "${EXIT_CODE}"
