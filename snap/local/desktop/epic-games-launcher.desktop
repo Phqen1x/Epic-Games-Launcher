@@ -2,7 +2,7 @@
 Name=Epic Games Launcher
 Comment=Access the Epic Games Store
 Exec=epic-games-launcher %U
-Icon=${SNAP}/meta/gui/icon.png
+Icon=epic-games-launcher
 Type=Application
 Categories=Game;
 MimeType=com.epicgames.eos://;

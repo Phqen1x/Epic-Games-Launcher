@@ -83,7 +83,6 @@ apps:
       - desktop-legacy
       - hardware-observe
       - home
-      - joystick
       - network
       - network-bind
       - opengl
@@ -109,12 +108,25 @@ parts:
       - fonts-wine
       - cabextract
       - unzip
+      - libx11-6
+      - libxext6
+      - libxcb1
+      - libx11-xcb1
+      - libgstreamer1.0-0
+      - gstreamer1.0-plugins-base
     stage:
       - opt/wine-stable/bin/
       - opt/wine-stable/lib/
       - opt/wine-stable/share/
       - usr/lib/x86_64-linux-gnu/libvulkan*
       - usr/lib/x86_64-linux-gnu/libvkd3d*
+      - usr/lib/x86_64-linux-gnu/libX11.so*
+      - usr/lib/x86_64-linux-gnu/libXext.so*
+      - usr/lib/x86_64-linux-gnu/libxcb.so*
+      - usr/lib/x86_64-linux-gnu/libX11-xcb.so*
+      - usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so*
+      - usr/lib/x86_64-linux-gnu/libgst*.so*
+      - usr/lib/x86_64-linux-gnu/gstreamer-1.0/
       - usr/share/fonts/
 
   # ── Epic Games Launcher MSI installer ─────────────────────────────────────
@@ -152,6 +164,9 @@ parts:
     stage-packages:
       - libasound2
       - libasound2-plugins
+      - libogg0
+      - libopus0
+      - libmpg123-0
     stage:
       - etc/asound.conf
       - snap/command-chain/alsa-launch
@@ -159,6 +174,9 @@ parts:
       - usr/lib/*/libasound*
       - usr/lib/*/libasyncns*
       - usr/lib/*/libFLAC*
+      - usr/lib/*/libogg*
+      - usr/lib/*/libopus*
+      - usr/lib/*/libmpg123*
       - usr/lib/*/libpulse*
       - usr/lib/*/libsamplerate*
       - usr/lib/*/libsndfile*
