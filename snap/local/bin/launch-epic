@@ -125,5 +125,8 @@ WATCHDOG_PID=$!
 wait "${WINE_PID}"
 EXIT_CODE=$?
 kill "${WATCHDOG_PID}" 2>/dev/null || true
-wine_killall
+# Don't kill wineserver here: EGL exits its main process to hand off to a
+# background self-updater. Wait for all remaining Wine processes to finish
+# naturally so the updater can complete.
+"${WINESERVER}" --wait
 exit "${EXIT_CODE}"
