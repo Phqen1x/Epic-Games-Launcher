@@ -55,12 +55,9 @@ environment:
   WINESERVER:       "$SNAP/opt/wine-stable/bin/wineserver"
   WINEPREFIX:       "$SNAP_USER_COMMON/wine"
   WINEARCH:         win64
-  WINEDLLOVERRIDES: "mscoree,mshtml=;winemenubuilder.exe="
-  WINEDEBUG:        "err+module"
+  WINEDLLOVERRIDES: "mscoree,mshtml="
+  WINEDEBUG:        "+server,+module,+loaddll"
   DXVK_LOG_LEVEL:   none
-  # Explicit DLL path so Wine's PE loader finds kernel32.dll and friends without
-  # relying solely on the compiled-in default under the layout bind-mount.
-  WINEDLLPATH:      "$SNAP/opt/wine-stable/lib/wine"
   LD_LIBRARY_PATH:  "$SNAP/opt/wine-stable/lib/wine/x86_64-unix:$SNAP/opt/wine-stable/lib:$SNAP/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
@@ -74,7 +71,6 @@ apps:
     desktop: share/applications/epic-games-launcher.desktop
     environment:
       HOME:            $SNAP_USER_COMMON
-      TMPDIR:          $XDG_RUNTIME_DIR
       DISABLE_WAYLAND: "1"
       ALWAYS_USE_PULSEAUDIO: "1"
     plugs:
