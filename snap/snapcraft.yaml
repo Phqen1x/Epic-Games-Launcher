@@ -83,7 +83,6 @@ apps:
       - network-bind
       - opengl
       - process-control
-      - pulseaudio
       - removable-media
       - screen-inhibit-control
       - unity7
