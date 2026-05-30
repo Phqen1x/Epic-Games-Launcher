@@ -17,6 +17,14 @@ MIN_FREE_MB="${EPIC_MIN_FREE_MB:-512}"
 
 log() { echo "[epic-snap] $*" >&2; }
 
+# Force-drop XAUTHORITY: under snap confinement on Wayland sessions, the host
+# sets it to /run/user/<uid>/.mutter-Xwayland* which is unreliable inside the
+# snap. Let winex11.drv fall back to default cookie resolution.
+if [ -n "${XAUTHORITY:-}" ]; then
+    log "Unsetting XAUTHORITY=${XAUTHORITY}"
+    unset XAUTHORITY
+fi
+
 heartbeat() {
     local pid=$1 label=$2
     local elapsed=0
