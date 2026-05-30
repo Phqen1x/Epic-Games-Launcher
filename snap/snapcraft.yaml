@@ -55,7 +55,7 @@ environment:
   WINESERVER:       "$SNAP/opt/wine-stable/bin/wineserver"
   WINEPREFIX:       "$SNAP_USER_COMMON/wine"
   WINEARCH:         win64
-  WINEDLLOVERRIDES: "mscoree,mshtml="
+  WINEDLLOVERRIDES: "mscoree,mshtml=;winemenubuilder.exe="
   WINEDEBUG:        "+server,+module,+loaddll,+x11drv"
   DXVK_LOG_LEVEL:   none
   LD_LIBRARY_PATH:  "$SNAP/opt/wine-stable/lib/wine/x86_64-unix:$SNAP/opt/wine-stable/lib:$SNAP/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
