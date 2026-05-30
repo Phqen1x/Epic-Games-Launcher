@@ -17,14 +17,6 @@ MIN_FREE_MB="${EPIC_MIN_FREE_MB:-512}"
 
 log() { echo "[epic-snap] $*" >&2; }
 
-# Force-drop XAUTHORITY: under snap confinement on Wayland sessions, the host
-# sets it to /run/user/<uid>/.mutter-Xwayland* which is unreliable inside the
-# snap. Let winex11.drv fall back to default cookie resolution.
-if [ -n "${XAUTHORITY:-}" ]; then
-    log "Unsetting XAUTHORITY=${XAUTHORITY}"
-    unset XAUTHORITY
-fi
-
 heartbeat() {
     local pid=$1 label=$2
     local elapsed=0
@@ -73,34 +65,22 @@ memory_watchdog() {
     done
 }
 
-# ── 1. Initialize Wine prefix (first run only) ────────────────────────────
+# ── 1. Clean stale prefix if needed ───────────────────────────────────────
 # If the prefix exists but the launcher was never successfully installed the
 # prefix is stale (e.g. from a failed/cancelled previous run, or a Wine version
-# change between snap rebuilds).  Wipe it so wineboot --init runs cleanly;
-# otherwise msiexec triggers an implicit wineboot --update that can hang for
-# minutes before timing out.
+# change between snap rebuilds).  Wipe it so the implicit prefix creation by
+# the MSI step below starts clean.
 if [ -d "${WINEPREFIX}/drive_c" ] && [ ! -f "${EGL_EXE}" ]; then
-    log "Stale Wine prefix detected (launcher not installed). Removing and reinitializing..."
+    log "Stale Wine prefix detected (launcher not installed). Removing..."
     wine_killall
     rm -rf "${WINEPREFIX}"
 fi
-
-if [ ! -d "${WINEPREFIX}/drive_c" ]; then
-    log "Initializing Wine prefix – this only happens once, please wait..."
-    mkdir -p "${WINEPREFIX}"
-    WINEARCH="${WINEARCH}" "${WINE}" wineboot --init &
-    WINEBOOT_PID=$!
-    heartbeat "${WINEBOOT_PID}" "Initializing prefix"
-    if ! wait "${WINEBOOT_PID}"; then
-        log "ERROR: Wine prefix initialization failed (exit $?)."
-        wine_killall
-        exit 1
-    fi
-    "${WINESERVER}" --wait
-    log "Wine prefix ready."
-fi
+mkdir -p "${WINEPREFIX}"
 
 # ── 2. Install Epic Games Launcher via the MSI (first run only) ───────────
+# The first wine invocation auto-creates the prefix via a full wineboot
+# sequence (not the --init bootstrap mode), which lets services.exe and
+# explorer.exe register the default winstation cleanly.
 if [ ! -f "${EGL_EXE}" ]; then
     log "Installing Epic Games Launcher – a progress window will appear on screen."
     log "Do not close it. The installer downloads additional components (~500 MB)."
