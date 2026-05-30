@@ -112,8 +112,11 @@ parts:
       - libxext6
       - libxcb1
       - libx11-xcb1
+      - libxau6
+      - libxdmcp6
       - libgstreamer1.0-0
       - gstreamer1.0-plugins-base
+      - liborc-0.4-0
     stage:
       - opt/wine-stable/bin/
       - opt/wine-stable/lib/
@@ -122,11 +125,22 @@ parts:
       - usr/lib/x86_64-linux-gnu/libvkd3d*
       - usr/lib/x86_64-linux-gnu/libX11.so*
       - usr/lib/x86_64-linux-gnu/libXext.so*
+      - usr/lib/x86_64-linux-gnu/libXau.so*
+      - usr/lib/x86_64-linux-gnu/libXdmcp.so*
       - usr/lib/x86_64-linux-gnu/libxcb.so*
       - usr/lib/x86_64-linux-gnu/libX11-xcb.so*
+      - usr/lib/x86_64-linux-gnu/liborc*
       - usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so*
       - usr/lib/x86_64-linux-gnu/libgst*.so*
+      - -usr/lib/x86_64-linux-gnu/libgstcheck*
+      - -usr/lib/x86_64-linux-gnu/libgstcontroller*
+      - -usr/lib/x86_64-linux-gnu/libgstfft*
+      - -usr/lib/x86_64-linux-gnu/libgstrtsp*
+      - -usr/lib/x86_64-linux-gnu/libgstsdp*
       - usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+      - -usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstcdparanoia.so
+      - -usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstlibvisual.so
+      - -usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgsttheora.so
       - usr/share/fonts/
 
   # ── Epic Games Launcher MSI installer ─────────────────────────────────────
@@ -154,6 +168,13 @@ parts:
       craftctl default
       chmod +x "${SNAPCRAFT_PART_INSTALL}/bin/launch-epic"
 
+  # ── Snap icon staged into prime for desktop-file linter and icon themes ───
+  snap-icon:
+    plugin: dump
+    source: snap/gui
+    organize:
+      icon.svg: share/icons/hicolor/scalable/apps/epic-games-launcher.svg
+
   # ── ALSA audio mixin ───────────────────────────────────────────────────────
   alsa-mixin:
     plugin: dump
@@ -162,11 +183,12 @@ parts:
     build-packages:
       - libasound2-dev
     stage-packages:
-      - libasound2
+      - libasound2t64
       - libasound2-plugins
       - libogg0
       - libopus0
       - libmpg123-0
+      - libmp3lame0
     stage:
       - etc/asound.conf
       - snap/command-chain/alsa-launch
@@ -177,10 +199,10 @@ parts:
       - usr/lib/*/libogg*
       - usr/lib/*/libopus*
       - usr/lib/*/libmpg123*
+      - usr/lib/*/libmp3lame*
       - usr/lib/*/libpulse*
       - usr/lib/*/libsamplerate*
       - usr/lib/*/libsndfile*
-      - usr/lib/*/libspeex*
       - usr/lib/*/libvorbis*
       - usr/lib/*/pulseaudio
       - usr/share/alsa
