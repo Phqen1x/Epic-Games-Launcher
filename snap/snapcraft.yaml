@@ -1,5 +1,5 @@
 name: epic-games-launcher
-base: core26
+base: core24
 version: 'latest'
 summary: Epic Games Launcher – Access the Epic Games Store on Linux
 description: |
@@ -12,7 +12,6 @@ description: |
 
   This is an unofficial community snap not affiliated with Epic Games, Inc.
 
-build-base: devel
 grade: devel
 confinement: strict
 compression: lzo
@@ -20,23 +19,21 @@ compression: lzo
 platforms:
   amd64:
 
-assumes:
-  - snapd2.58.3
-
 # ---------------------------------------------------------------------------
-# Package repository – WineHQ stable (Wine 11) for Ubuntu 26.04 Resolute
+# Package repository – WineHQ stable for Ubuntu 24.04 Noble
 # Key fingerprint verified from https://dl.winehq.org/wine-builds/winehq.key
 # ---------------------------------------------------------------------------
 package-repositories:
   - type: apt
     url: https://dl.winehq.org/wine-builds/ubuntu/
-    suites: [resolute]
+    suites: [noble]
     components: [main]
-    architectures: [amd64]
+    architectures: [amd64, i386]
+    key-server: keyserver.ubuntu.com
     key-id: D43F640145369C51D786DDEA76F1A20FF987672F
 
 # ---------------------------------------------------------------------------
-# Layouts – Wine 11 installs to /opt/wine-stable; bind it so Wine can find
+# Layouts – Wine installs to /opt/wine-stable; bind it so Wine can find
 # its own DLLs at the expected absolute path at runtime.
 # ---------------------------------------------------------------------------
 layout:
@@ -56,11 +53,8 @@ environment:
   WINEPREFIX:       "$SNAP_USER_COMMON/wine"
   WINEARCH:         win64
   WINEDLLOVERRIDES: "mscoree,mshtml=;winemenubuilder.exe="
-  WINEDEBUG:        "err+module"
+  WINEDEBUG:        "+server,+module,+loaddll,+x11drv"
   DXVK_LOG_LEVEL:   none
-  # Explicit DLL path so Wine's PE loader finds kernel32.dll and friends without
-  # relying solely on the compiled-in default under the layout bind-mount.
-  WINEDLLPATH:      "$SNAP/opt/wine-stable/lib/wine"
   LD_LIBRARY_PATH:  "$SNAP/opt/wine-stable/lib/wine/x86_64-unix:$SNAP/opt/wine-stable/lib:$SNAP/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
@@ -68,67 +62,57 @@ environment:
 # ---------------------------------------------------------------------------
 apps:
   epic-games-launcher:
+    extensions: [gnome]
     command: bin/launch-epic
     command-chain:
       - snap/command-chain/alsa-launch
     desktop: share/applications/epic-games-launcher.desktop
     environment:
       HOME:            $SNAP_USER_COMMON
-      TMPDIR:          $XDG_RUNTIME_DIR
       DISABLE_WAYLAND: "1"
       ALWAYS_USE_PULSEAUDIO: "1"
     plugs:
       - audio-playback
-      - desktop
-      - desktop-legacy
       - hardware-observe
       - home
       - network
       - network-bind
       - opengl
       - process-control
-      - pulseaudio
       - removable-media
       - screen-inhibit-control
-      - unity7
-      - x11
 
 # ---------------------------------------------------------------------------
 # Parts
 # ---------------------------------------------------------------------------
 parts:
 
-  # ── Wine 11 stable (WineHQ, amd64-only for win64 prefix) ─────────────────
+  # ── Wine stable (WineHQ, amd64-only for win64 prefix) ────────────────────
+  # X11/Wayland/font/GL runtime libs come from the gnome extension's
+  # content snap, so they are NOT staged here.
   wine:
     plugin: nil
+    override-pull: |
+      dpkg --add-architecture i386
+      apt-get update
+      craftctl default
     stage-packages:
       - wine-stable
+      - wine-stable-amd64
+      - wine-stable-i386:i386
       - libvulkan1
       - libvkd3d1
       - fonts-wine
       - cabextract
       - unzip
-      - libx11-6
-      - libxext6
-      - libxcb1
-      - libx11-xcb1
-      - libxau6
-      - libxdmcp6
       - libgstreamer1.0-0
       - gstreamer1.0-plugins-base
       - liborc-0.4-0
     stage:
-      - opt/wine-stable/bin/
       - opt/wine-stable/lib/
-      - opt/wine-stable/share/
+      - opt/wine-stable
       - usr/lib/x86_64-linux-gnu/libvulkan*
       - usr/lib/x86_64-linux-gnu/libvkd3d*
-      - usr/lib/x86_64-linux-gnu/libX11.so*
-      - usr/lib/x86_64-linux-gnu/libXext.so*
-      - usr/lib/x86_64-linux-gnu/libXau.so*
-      - usr/lib/x86_64-linux-gnu/libXdmcp.so*
-      - usr/lib/x86_64-linux-gnu/libxcb.so*
-      - usr/lib/x86_64-linux-gnu/libX11-xcb.so*
       - usr/lib/x86_64-linux-gnu/liborc*
       - usr/lib/x86_64-linux-gnu/libgstreamer-1.0.so*
       - usr/lib/x86_64-linux-gnu/libgst*.so*
